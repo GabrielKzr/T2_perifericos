@@ -35,19 +35,17 @@ static int slb_master_transfer(const struct device_s *dev, char data)
 
 	config = (struct slb_config_s *)dev->config;
 
-	for (i = 0; i < 8; ++i) {
-		if (data & 0x80) {
-			config->gpio_sdl(1); // set data high
-			_delay_us(2*config->sync_time); // se for 1, delay de 66us
-		} else {
-			config->gpio_sdl(1); // set data high
-			_delay_us(config->sync_time); // se for 0, delay de 33us
-		}
+	int len_data = sizeof(data);
 
-		data <<= 1; // pega o proximo bit
+	for (i = 0; i < 8; ++i) {
 
 		config->gpio_sdl(0); // set data low
 		_delay_us(config->sync_time); // delay de sync de 33us
+		
+		config->gpio_sdl(1); // set data high
+		_delay_us((((data & 0x80) ==  len_data>>7) + 1) *config->sync_time); // delay de sync de 33us
+
+		data <<= 1; // pega o proximo bit
 	}
 
 	return 0;
@@ -61,9 +59,11 @@ static int slb_read_bit(const struct device_s *dev)
 
 	config = (struct slb_config_s *)dev->config;
 
+	while(!config->gpio_sdl(-1)); // espera de fato o bit começar a ser enviado 
+
 	while (1)
 	{
-		if(config->gpio_sdl(-1) == 0) { // se o barramento estiver em low, significa que o slave ta respondendo
+		if(config->gpio_sdl(-1) == 1) { // se o barramento estiver em low, significa que o slave ta respondendo
 			if(counter > 8) { // maior que 80us é stop bit
 				return -1; // stop bit
 			} else if (counter > 4) { // entre 80us e 40us é bit 1
@@ -130,9 +130,11 @@ static int slb_driver_init(const struct device_s *dev)
 
 static int slb_driver_open(const struct device_s *dev, int mode) 
 {
+	struct slb_config_s *config;
 	struct slb_data_s *data;
 	int retval = 0, val;
 
+	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
 
 	if(!data->init) return -1;
@@ -147,9 +149,23 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 
 	if(mode) return -1; // no mode supported
 
-	// --------------------------
-	// start the device (se for fazer algum comando para o barramento, precisa ser aqui)
-	// --------------------------
+
+	// CRITICAL_ENTER(); talvez precise, pensar!, não sei se o busy ja não faz isso!
+	if(config->device_mode == SLB_MASTER) {
+		config->gpio_sdl(0); 
+
+		_delay_us(900); // delay de sync de 900us para iniciar select
+
+		config->gpio_sdl(1); 
+
+		_delay_us(100); // delay de sync de 100us para start
+
+		//config->gpio_sdl(0); acho que não seta aqui e sim no write, pensar!
+
+	} else {
+		return -1; // slave mode not supported (does not transmit)
+	}
+	// CRITICAL_LEAVE(); 
 
 	return retval;
 }
@@ -164,9 +180,17 @@ static int slb_driver_close(const struct device_s *dev)
 
 	if(!data->init) return -1;
 
-	// --------------------------
-	// stop the device (se for fazer algum comando para o barramento, precisa ser aqui)
-	// --------------------------
+	// CRITICAL_ENTER(); talvez precise, pensar!, não sei se o busy ja não faz isso!
+	if(config->device_mode == SLB_MASTER) {
+
+		config->gpio_sdl(1); 
+
+		_delay_us(100); // delay de sync de 100us para start
+
+	} else {
+		return -1; // slave mode not supported (does not transmit)
+	}
+	// CRITICAL_LEAVE();
 
 	CRITICAL_ENTER();
 	data->busy = 0;
@@ -257,21 +281,13 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 
 		NOSCHED_ENTER();
 
-		config->gpio_sdl(0); // set data low (inicia select)
-
-		_delay_us(800); // delay de sync de 800us para iniciar select
-
-		config->gpio_sdl(1); // set data high (inicia start)
-
-		_delay_us(100); // delay de sync de 100us para start
-
 		config->gpio_sdl(0); // set data low (sync bit)
 
 		_delay_us(config->sync_time); // delay de sync de 33us
 
 		for (i = 0; i < count; i++) {
 			slb_master_transfer(dev, p[i]);
-		}
+		}	
 
 		config->gpio_sdl(1); // antes de select sempre ta high
 
@@ -284,7 +300,7 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 }
 
 /* device driver function mapping for generic API */
-struct device_api_s i2c_api = {
+struct device_api_s slb_api = {
 	.dev_init = slb_driver_init,
 	.dev_deinit = NULL,
 	.dev_open = slb_driver_open,
