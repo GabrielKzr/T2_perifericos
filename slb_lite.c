@@ -28,14 +28,14 @@ size_t slb_write(const struct device_s *dev, void *buf, size_t count)
 	return dev->api->dev_write(dev, buf, count);
 }
 
-static int slb_master_transfer(const struct device_s *dev, char data)
+static int slb_master_transfer(const struct device_s *dev, uint8_t data)
 {
 	struct slb_config_s *config;
 	int i;
 
 	config = (struct slb_config_s *)dev->config;
 
-	// int len_data = sizeof(data);
+	int len_data = sizeof(data);
 
 	for (i = 0; i < 8; ++i) {
 
@@ -43,9 +43,7 @@ static int slb_master_transfer(const struct device_s *dev, char data)
 		_delay_us(config->sync_time); // delay de sync de 33us
 		
 		config->gpio_sdl(1); // set data high
-
-		// esse len_data sempre vai ser 1 não? então sempre resulta em 0 essa operação
-		_delay_us((((data & 0x80) /*==  len_data>>7*/) + 1) *config->sync_time); 
+		_delay_us((((data & 0x80) ==  len_data>>7) + 1) *config->sync_time); // delay de sync de 33us
 
 		data <<= 1; // pega o proximo bit
 	}
@@ -55,7 +53,7 @@ static int slb_master_transfer(const struct device_s *dev, char data)
 
 static int slb_read_bit(const struct device_s *dev)
 {
-	// char bit; // não uso isso
+	uint8_t bit;
   	struct slb_config_s *config;
 	int counter = 0;
 
@@ -83,7 +81,7 @@ static int slb_read_bit(const struct device_s *dev)
 static int slb_read_byte(const struct device_s *dev)
 {
 	struct slb_config_s *config;
-	char byte = 0;
+	uint8_t byte;
 	unsigned bit;
 	int val;
 
@@ -114,21 +112,14 @@ static int slb_driver_init(const struct device_s *dev)
     data->init = 0;
 
     val = config->gpio_configpins();
-    if (val < 0) 
-	{
+    if (val < 0)
         return val;
-	}
 
-	if (config->device_mode == SLB_MASTER)
-	{
+	if (config->device_mode == SLB_MASTER) {
 		config->gpio_sdl(1); // set to master mode (começa em high)
-	} 
-	else if (config->device_mode == SLB_SLAVE)
-	{
+	} else if (config->device_mode == SLB_SLAVE) {
 		config->gpio_sdl(-1); // set to slave mode (slave só ouve)
-	} 
-	else 
-	{
+	} else {
 		return -1; // invalid mode
 	}
 
@@ -141,14 +132,14 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 {
 	struct slb_config_s *config;
 	struct slb_data_s *data;
-	int retval = 0;  
+	int retval = 0, val;
 
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
 
 	if(!data->init) return -1;
 
-	CRITICAL_ENTER(); // busy precisa ser critico para não ter mais de uma task usando o driver ao mesmo tempo
+	CRITICAL_ENTER();
 	if (!data->busy) {
 		data->busy = 1;
 	} else {
@@ -158,7 +149,7 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 
 	if(mode) return -1; // no mode supported
 
-	if(config->device_mode == SLB_MASTER) {
+	if(!retval && config->device_mode == SLB_MASTER) {
 		config->gpio_sdl(0); 
 
 		_delay_us(900); // delay de sync de 900us para iniciar select
@@ -167,8 +158,7 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 
 		_delay_us(100); // delay de sync de 100us para start
 
-		//config->gpio_sdl(0); acho que não seta aqui e sim no write, pensar! 
-		// acho que da na mesma, mas é melhor deixar no write msm
+		//config->gpio_sdl(0); acho que não seta aqui e sim no write, pensar!
 
 	} else {
 		return -1; // slave mode not supported (does not transmit)
@@ -191,7 +181,7 @@ static int slb_driver_close(const struct device_s *dev)
 
 		config->gpio_sdl(1); 
 
-		_delay_us(100); // delay de sync de 100us para stop
+		_delay_us(100); // delay de sync de 100us para start
 
 	} else {
 		return -1; // slave mode not supported (does not transmit)
@@ -208,13 +198,13 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 {
 	struct slb_config_s *config;
 	struct slb_data_s *data;
-	char *p;
+	uint8_t *p;
 	int i, val = 0;
 	int counter = 0;
 
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
-	p = (char *)buf;
+	p = (uint8_t *)buf;
 
 	if(!data->init) return -1;
 
@@ -272,26 +262,29 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 {
 	struct slb_config_s *config;
 	struct slb_data_s *data;
-	char *p;
+	uint8_t *p;
 	int i;
 	
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
-	p = (char *)buf;
+	p = (uint8_t *)buf;
 
 	if(!data->init) return -1;
+
+	uint32_t checksum = 0;
 
 	if(config->device_mode == SLB_MASTER) {
 
 		NOSCHED_ENTER();
 
-		// já ta definindo isso dentro do transfer
-		// config->gpio_sdl(0); // set data low (sync bit)
-		// _delay_us(config->sync_time); // delay de sync de 33us
-
-		for (i = 0; i < count; i++) {
+		for (i = 0; i < count; i++) { 
+			
 			slb_master_transfer(dev, p[i]);
+		
+			checksum += p[i]; // soma o checksum
 		}	
+
+		slb_master_transfer(dev, (uint8_t)(checksum%256)); // envia o checksum
 
 		config->gpio_sdl(1); // antes de select sempre ta high
 
@@ -312,3 +305,4 @@ struct device_api_s slb_api = {
 	.dev_read = slb_driver_read,
 	.dev_write = slb_driver_write
 };
+
