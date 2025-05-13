@@ -53,7 +53,6 @@ static int slb_master_transfer(const struct device_s *dev, uint8_t data)
 
 static int slb_read_bit(const struct device_s *dev)
 {
-	uint8_t bit;
   	struct slb_config_s *config;
 	int counter = 0, val;
 	uint64_t lasttime = 0, actualtime = 0;
@@ -111,8 +110,7 @@ static int slb_driver_init(const struct device_s *dev)
     data->init = 0;
 
     val = config->gpio_configpins();
-    if (val < 0)
-        return val;
+    if (val < 0) return val;
 
 	if (config->device_mode == SLB_MASTER) {
 		config->gpio_sdl(1); // set to master mode (começa em high)
@@ -131,7 +129,7 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 {
 	struct slb_config_s *config;
 	struct slb_data_s *data;
-	int retval = 0, val;
+	int retval = 0;
 
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
