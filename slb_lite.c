@@ -198,6 +198,7 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 	uint8_t *p;
 	int i, val = 0;
 	uint64_t lasttime = 0, actualtime = 0;
+	uint32_t checksum = 0;
 
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
@@ -225,6 +226,11 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		if(val < 0) break; // se for stop bit, sai do loop
 
 		p[i] = val; // do contrário, armazena o byte lido
+		checksum += val; // soma o checksum
+	}
+
+	if(p[i-1] != (uint8_t)(checksum%256)) {
+		return -1;
 	}
 
 	NOSCHED_LEAVE();
