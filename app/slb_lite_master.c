@@ -69,7 +69,7 @@ const struct device_s slb_device = {
 	.api = &slb_api
 };
 
-const struct device_s *i2c1 = &slb_device;
+const struct device_s *slb_master = &slb_device;
 
 void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 {
@@ -81,11 +81,11 @@ void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
     if(size > 32) size = 32;
     memcpy(data + 1, buf, size);
 
-    dev_open(i2c1, 0);
+    dev_open(slb_master, 0);
 
-    dev_write(i2c1, data, size + 1);
+    dev_write(slb_master, data, size + 1);
 
-    dev_close(i2c1);
+    dev_close(slb_master);
 
     _delay_ms(5); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
 }
@@ -113,7 +113,7 @@ int32_t app_main(void)
 	ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
 	ucx_task_spawn(task0, DEFAULT_STACK_SIZE);
 
-	dev_init(i2c1);
+	dev_init(slb_master);
 
 	// start UCX/OS, preemptive mode
 	return 1;

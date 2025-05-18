@@ -79,14 +79,14 @@ static int slb_read_bit(const struct device_s *dev)
 static int slb_read_byte(const struct device_s *dev)
 {
 	struct slb_config_s *config;
-	uint8_t byte;
+	uint8_t byte=0;
 	unsigned bit;
 	int val;
 
 	config = (struct slb_config_s *)dev->config;
 	
 	for(bit = 0; bit < 8; bit++) {
-		_delay_us(config->sync_time); // delay de sync de 33us
+		//_delay_us(config->sync_time); // delay de sync de 33us
 		val = slb_read_bit(dev); // read data
 
 		if (val < 0) return val;
