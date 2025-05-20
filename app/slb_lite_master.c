@@ -44,7 +44,7 @@ int gpio_configpins(void)
 int gpio_sdl(int val)
 {
 	switch (val) {
-	case -1: return ((gpio_dev_api->gpio_get(gpio) & GPIO_PIN7) >> 6);
+	case -1: return ((gpio_dev_api->gpio_get(gpio) & GPIO_PIN7) >> 7);
 	case 0: gpio_dev_api->gpio_clear(gpio, GPIO_PIN7); return 0;
 	case 1: gpio_dev_api->gpio_set(gpio, GPIO_PIN7); return 0;
 	default: return -1;
@@ -83,11 +83,15 @@ void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 
     dev_open(slb_master, 0);
 
+	printf("SLB_LITE: antes do dev_write()\n");
+
     dev_write(slb_master, data, size + 1);
+
+	printf("SLB_LITE: depois do dev_write()\n");
 
     dev_close(slb_master);
 
-    _delay_ms(5); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
+    _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
 }
 
 void idle(void)
@@ -99,9 +103,13 @@ void task0(void)
 {
 	uint8_t buf[100];
 	
+	printf("SLB_LITE: task0()\n");
+
 	memset(buf, 0x69, sizeof(buf)); // não sei qual o padrão de 0x69 em bytes na hora que for ver no analisador lógico
 	slb_lite_buffwrite(0x00, buf, 32);
 	
+	printf("uepa\n");
+
 	while (1) {
         // por enquanto não faz nada, talvez seja interessante colocar o teste de escrita aqui
 		ucx_task_delay(500);
