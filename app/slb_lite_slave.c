@@ -7,7 +7,7 @@
 const struct gpio_config_s gpio_config = {
 	.config_values.port	  = GPIO_PORTB,
 	.config_values.pinsel = GPIO_PIN7,
-	.config_values.mode	  = GPIO_INPUT << GPIO_PIN7_OPT,
+	.config_values.mode	  = GPIO_OUTPUT_OD << GPIO_PIN7_OPT,
 	.config_values.pull	  = GPIO_NOPULL << GPIO_PIN7_OPT // LEMBRAR QUE NÂO TEM PULL AQUI, TEM QUE COLOCAR NA PLACA, SENÃO F
 };
 
@@ -32,6 +32,7 @@ int gpio_configpins(void)
 {
 	printf("SLB_LITE: gpio_configpins()\n");
 	gpio_dev_api->gpio_setup(gpio);
+	gpio_dev_api->gpio_set(gpio, GPIO_PIN7);
 
 	return 0;
 }
