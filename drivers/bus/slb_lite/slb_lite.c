@@ -35,8 +35,6 @@ static int slb_master_transfer(const struct device_s *dev, uint8_t data)
 
 	config = (struct slb_config_s *)dev->config;
 
-	int len_data = sizeof(data);
-
 	for (i = 0; i < 8; ++i) {
 
 		config->gpio_sdl(0); // set data low
@@ -91,6 +89,7 @@ static int slb_read_byte(const struct device_s *dev)
 	config = (struct slb_config_s *)dev->config;
 	
 	for(bit = 0; bit < 8; bit++) {
+		while(!config->gpio_sdl(-1)); //PORRAAAAAAAAAAAAAAAAAAAAAAAAAAA, porque essa merda de baixo estava comentado, deixa assim usando o while
 		//_delay_us(config->sync_time); // delay de sync de 33us
 		val = slb_read_bit(dev); // read data
 

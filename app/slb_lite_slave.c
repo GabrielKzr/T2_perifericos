@@ -113,7 +113,6 @@ void task0(void)
 
 		//cgpio_dev_api->gpio_set(gpio, GPIO_PIN7);
 
-
 		dev_read(slb_slave, buf, 30);
         
 		for(int i = 0; i < 30; i++) {
