@@ -243,7 +243,7 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
 		if(actualtime - lasttime < 80) continue; // tempo de start muito curto
 		
-		printf("diff time = %d\n", actualtime - lasttime);
+		// printf("diff time = %d\n", actualtime - lasttime);
 
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
@@ -259,7 +259,9 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			p[i] = val; // do contrário, armazena o byte lido
 			// checksum += val; // soma o checksum
 		}
-		
+
+		if(i > 1 && config->own_address != (p[0] >> 1)) continue; // não é pra mim a mensagem
+
 		if(repeat_flag) continue;
 /*
 if(p[i-1] != (uint8_t)(checksum%256)) {
@@ -298,6 +300,8 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 	
 		checksum += p[i]; // soma o checksum
 	}	
+
+	// printf("checksum = %d\n", (uint8_t)(checksum%256));
 
 	slb_master_transfer(dev, (uint8_t)(checksum%256)); // envia o checksum
 

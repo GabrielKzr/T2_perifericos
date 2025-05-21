@@ -73,19 +73,19 @@ const struct device_s *slb_master = &slb_device;
 
 void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 {
-    // char data[33];
-    // uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
+    char data[33];
+    uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
 
-    // data[0] = byte;
+    data[0] = byte;
 
     if(size > 32) size = 32;
-    // memcpy(data + 1, buf, size);
+    memcpy(data + 1, buf, size);
 
     dev_open(slb_master, 0);
 
 	printf("SLB_LITE: antes do dev_write()\n");
 
-    dev_write(slb_master, buf, size);
+    dev_write(slb_master, data, size + 1);
 
 	printf("SLB_LITE: depois do dev_write()\n");
 
