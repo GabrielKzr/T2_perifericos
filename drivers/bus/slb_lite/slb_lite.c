@@ -212,11 +212,11 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		repeat_flag = 0; // flag utilizada para, caso a mensagem não seja pra mim, repetir a leitura
 		// espera até que o barramento vá para high
 		while(!config->gpio_sdl(-1)); // espera acabar o tempo de select
-	
+
 		NOSCHED_ENTER();
 		// espera até que o barramento vá para low
 		lasttime = _read_us(); 
-		while (config->gpio_sdl(-1)); // espera de fato o bit começar a ser enviado
+		while (config->gpio_sdl(-1));// espera de fato o bit começar a ser enviado
 		actualtime = _read_us(); // pega o tempo atual
 		
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
@@ -226,10 +226,10 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
 			
-			if(i == 0 && config->own_address != (val >> 1)) { // não é pra mim a mensagem
+			/*if(i == 0 && config->own_address != (val >> 1)) { // não é pra mim a mensagem
 				repeat_flag = 1; // flag para repetir a leitura
 				break; // sai do loop
-			}
+			}*/
 			
 			if(val < 0) break; // se for stop bit, sai do loop
 			

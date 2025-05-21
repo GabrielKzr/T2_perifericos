@@ -7,7 +7,7 @@
 const struct gpio_config_s gpio_config = {
 	.config_values.port	  = GPIO_PORTB,
 	.config_values.pinsel = GPIO_PIN7,
-	.config_values.mode	  = GPIO_OUTPUT_OD << GPIO_PIN7_OPT,
+	.config_values.mode	  = GPIO_INPUT << GPIO_PIN7_OPT,
 	.config_values.pull	  = GPIO_NOPULL << GPIO_PIN7_OPT // LEMBRAR QUE NÂO TEM PULL AQUI, TEM QUE COLOCAR NA PLACA, SENÃO F
 };
 
@@ -54,8 +54,8 @@ int gpio_sdl(int val)
 /* SLB_LITE (bitbang) configuration and driver instantiation */
 const struct slb_config_s slb_config = {
 	.sync_time = 33,
-    .device_mode = SLB_MASTER,
-    .own_address = 0x00,
+    .device_mode = SLB_SLAVE,
+    .own_address = 0x01,
 	.gpio_configpins = gpio_configpins,
     .gpio_sdl = gpio_sdl
 };
@@ -69,7 +69,7 @@ const struct device_s slb_device = {
 	.api = &slb_api
 };
 
-const struct device_s *slb_master = &slb_device;
+const struct device_s *slb_slave = &slb_device;
 
 void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 {
@@ -81,15 +81,15 @@ void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
     if(size > 32) size = 32;
     memcpy(data + 1, buf, size);
 
-    dev_open(slb_master, 0);
+    dev_open(slb_slave, 0);
 
 	printf("SLB_LITE: antes do dev_write()\n");
 
-    dev_write(slb_master, data, size + 1);
+    dev_write(slb_slave, data, size + 1);
 
 	printf("SLB_LITE: depois do dev_write()\n");
 
-    dev_close(slb_master);
+    dev_close(slb_slave);
 
     _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
 }
@@ -103,31 +103,36 @@ void task0(void)
 {
 	uint8_t buf[100];
 	
-	printf("SLB_LITE: task0()\n");
+	dev_open(slb_slave, 0);
+
+	printf("uepa\n");
+
+	memset(buf, 0, sizeof(buf)); // não sei qual o padrão de 0x69 em bytes na hora que for ver no analisador lógico
 
 	while (1) {
-		//gpio_dev_api->gpio_clear(gpio, GPIO_PIN7);
-		//_delay_us(500); // delay de sync de 900us para iniciar select
-		//gpio_dev_api->gpio_set(gpio, GPIO_PIN7); 
-		//_delay_us(500); // delay de sync de 100us para start
-		
-		for(int i = 0; i < 100; i++) {
-			buf[i] = 0x69 + i;
+
+		//cgpio_dev_api->gpio_set(gpio, GPIO_PIN7);
+
+
+		dev_read(slb_slave, buf, 30);
+        
+		for(int i = 0; i < 30; i++) {
+			printf("buf[%d] = %d\n", i, buf[i]);
 		}
-		
-		slb_lite_buffwrite(0x01, buf, 32);
-		_delay_us(500);
-		printf("uepa\n");
-        // por enquanto não faz nada, talvez seja interessante colocar o teste de escrita aqui
+	
 	}
+
+	dev_close(slb_slave);
+
+
 }
 
 int32_t app_main(void)
 {
-	//ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
+	ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
 	ucx_task_spawn(task0, DEFAULT_STACK_SIZE);
 
-	dev_init(slb_master);
+	dev_init(slb_slave);
 
 	// start UCX/OS, preemptive mode
 	return 1;
