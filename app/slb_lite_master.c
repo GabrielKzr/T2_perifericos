@@ -83,11 +83,7 @@ void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 
     dev_open(slb_master, 0);
 
-	printf("SLB_LITE: antes do dev_write()\n");
-
     dev_write(slb_master, data, size + 1);
-
-	printf("SLB_LITE: depois do dev_write()\n");
 
     dev_close(slb_master);
 
@@ -112,7 +108,7 @@ void task0(void)
 		//_delay_us(500); // delay de sync de 100us para start
 		
 		for(int i = 0; i < 100; i++) {
-			buf[i] = i;
+			buf[i] = i + 217;
 		}
 		
 		slb_lite_buffwrite(0x01, buf, 32);

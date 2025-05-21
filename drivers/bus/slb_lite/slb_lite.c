@@ -45,7 +45,6 @@ static int slb_master_transfer(const struct device_s *dev, uint8_t data)
 			_delay_us(2*config->sync_time); // se for 1, delay de 66us
 		} else {
 			_delay_us(config->sync_time); // se for 0, delay de 33us
-
 		}
 
 		data <<= 1; // pega o proximo bit
@@ -70,8 +69,6 @@ static int slb_read_bit(const struct device_s *dev)
 
 	val = actualtime - lasttime; // calcula o tempo que ficou em high
 
-	// printf("diff time BIT AAAAAAA = %d\n", val);
-
 	if(val > 80) { // tempo do stop bit
 		return -1; // stop bit
 	} else if (val > 40) { // entre 80us e 40us é bit 1
@@ -91,11 +88,7 @@ static uint8_t slb_read_byte(const struct device_s *dev)
 	config = (struct slb_config_s *)dev->config;
 	
 	for(bit = 0; bit < 8; bit++) {
-		// while(!config->gpio_sdl(-1)); //PORRAAAAAAAAAAAAAAAAAAAAAAAAAAA, porque essa merda de baixo estava comentado, deixa assim usando o while
-		//_delay_us(config->sync_time); // delay de sync de 33us
 		val = slb_read_bit(dev); // read data
-
-		// printf("bit %d = %d\n", bit, val);
 
 		if (val < 0) return val;
 
@@ -165,8 +158,6 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 
 		_delay_us(100); // delay de sync de 100us para start
 
-		//config->gpio_sdl(0); acho que não seta aqui e sim no write, pensar!
-
 	} else {
 		return -1; // slave mode não manda open
 	}
@@ -212,20 +203,21 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 	struct slb_config_s *config;
 	struct slb_data_s *data;
 	uint8_t *p;
-	int i, val = 0;
+	int i, j, val = 0;
+	int check = 0;
+
 	uint64_t lasttime = 0, actualtime = 0;
 	uint32_t checksum = 0;
-	short repeat_flag;
 
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
 	p = (uint8_t *)buf;
 
+
 	if(!data->init) return -1;
 
 	while (1)
 	{	
-		repeat_flag = 0; // flag utilizada para, caso a mensagem não seja pra mim, repetir a leitura
 		// espera até que o barramento vá para high
 		NOSCHED_ENTER();
 
@@ -243,31 +235,23 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
 		if(actualtime - lasttime < 80) continue; // tempo de start muito curto
 		
-		// printf("diff time = %d\n", actualtime - lasttime);
-
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
 			
-			/*if(i == 0 && config->own_address != (val >> 1)) { // não é pra mim a mensagem
-				repeat_flag = 1; // flag para repetir a leitura
-				break; // sai do loop
-			}*/
-			
 			if(val < 0) break; // se for stop bit, sai do loop
 			
 			p[i] = val; // do contrário, armazena o byte lido
-			// checksum += val; // soma o checksum
+			check = val;
 		}
 
 		if(i > 1 && config->own_address != (p[0] >> 1)) continue; // não é pra mim a mensagem
 
-		if(repeat_flag) continue;
-/*
-if(p[i-1] != (uint8_t)(checksum%256)) {
-	return -1;
-}
-*/
+		for(j = 0; j < count; j++) {
+			checksum = p[j];
+		}
+
+		if(p[i] != (uint8_t)checksum%256) return -1;
 		
 		NOSCHED_LEAVE();
 		
@@ -281,6 +265,7 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 	struct slb_data_s *data;
 	uint8_t *p;
 	int i;
+	int j;
 	
 	config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
@@ -289,23 +274,27 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 	if(!data->init) return -1;
 
 	uint32_t checksum = 0;
+	uint8_t check_8 = 0;
 
 	// REMEMBER -> SLAVE JUST TRANSMIT WHEN MASTER SENDS A READ REQUEST
+
+	for(j = 0; j < count; j++) {
+		checksum += p[j];
+	}
+
+	check_8 = (uint8_t)(checksum%256);
 
 	NOSCHED_ENTER();
 
 	for (i = 0; i < count; i++) { 
-		
 		slb_master_transfer(dev, p[i]);
-	
-		checksum += p[i]; // soma o checksum
 	}	
 
-	// printf("checksum = %d\n", (uint8_t)(checksum%256));
+	slb_master_transfer(dev, check_8); // envia o checksum
 
-	slb_master_transfer(dev, (uint8_t)(checksum%256)); // envia o checksum
-
-	config->gpio_sdl(1); // antes de select sempre ta high
+	// NECESSARIO PRA FINALIZAR CONN (talvez colocar no close)
+	config->gpio_sdl(0); // set data low
+	_delay_us(config->sync_time);
 
 	NOSCHED_LEAVE();
 

@@ -72,29 +72,6 @@ const struct device_s slb_device = {
 
 const struct device_s *slb_slave = &slb_device;
 
-void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
-{
-    char data[33];
-    uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
-
-    data[0] = byte;
-
-    if(size > 32) size = 32;
-    memcpy(data + 1, buf, size);
-
-    dev_open(slb_slave, 0);
-
-	printf("SLB_LITE: antes do dev_write()\n");
-
-    dev_write(slb_slave, data, size + 1);
-
-	printf("SLB_LITE: depois do dev_write()\n");
-
-    dev_close(slb_slave);
-
-    _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
-}
-
 void idle(void)
 {
 	for (;;);
@@ -114,8 +91,9 @@ void task0(void)
 
 		//cgpio_dev_api->gpio_set(gpio, GPIO_PIN7);
 
-		dev_read(slb_slave, buf, 33);        
-		for(int i = 0; i < 34; i++) {
+		if (dev_read(slb_slave, buf, 33) < 0) printf("DEU MERDA\n");        
+		
+		for(int i = 0; i < 35; i++) {
 			printf("buf[%d] = %d\n", i, buf[i]);
 		}
 	
