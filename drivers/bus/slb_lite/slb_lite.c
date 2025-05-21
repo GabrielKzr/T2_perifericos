@@ -43,7 +43,12 @@ static int slb_master_transfer(const struct device_s *dev, uint8_t data)
 		_delay_us(config->sync_time); // delay de sync de 33us
 		
 		config->gpio_sdl(1); // set data high
-		_delay_us((((data & 0x80) ==  len_data<<7) + 1) *config->sync_time); // delay de sync de 33us
+		if(data & 0x80) { // se o bit for 1
+			_delay_us(2*config->sync_time); // se for 1, delay de 66us
+		} else {
+			_delay_us(config->sync_time); // se for 0, delay de 33us
+
+		}
 
 		data <<= 1; // pega o proximo bit
 	}
