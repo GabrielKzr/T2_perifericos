@@ -80,12 +80,9 @@ static int slb_read_bit(const struct device_s *dev)
 
 static uint8_t slb_read_byte(const struct device_s *dev)
 {
-	struct slb_config_s *config;
 	uint8_t byte=0;
 	unsigned bit;
 	int val;
-
-	config = (struct slb_config_s *)dev->config;
 	
 	for(bit = 0; bit < 8; bit++) {
 		val = slb_read_bit(dev); // read data
@@ -128,11 +125,11 @@ static int slb_driver_init(const struct device_s *dev)
 
 static int slb_driver_open(const struct device_s *dev, int mode) 
 {
-	struct slb_config_s *config;
+	// struct slb_config_s *config;
 	struct slb_data_s *data;
 	int retval = 0;
 
-	config = (struct slb_config_s *)dev->config;
+	// config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
 
 	if(!data->init) return -1;
@@ -147,49 +144,18 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 
 	if(mode) return -1; // no mode supported
 
-	NOSCHED_ENTER();
-
-	if(!retval && config->device_mode == SLB_MASTER) {
-		config->gpio_sdl(0); 
-
-		_delay_us(900); // delay de sync de 900us para iniciar select
-
-		config->gpio_sdl(1); 
-
-		_delay_us(100); // delay de sync de 100us para start
-
-	} else {
-		return -1; // slave mode não manda open
-	}
-
-	NOSCHED_LEAVE();
-
 	return retval;
 }
 
 static int slb_driver_close(const struct device_s *dev) 
 {
-	struct slb_config_s *config;
+	// struct slb_config_s *config;
 	struct slb_data_s *data;
 	
-	config = (struct slb_config_s *)dev->config;
+	// config = (struct slb_config_s *)dev->config;
 	data = (struct slb_data_s *)dev->data;
 
 	if(!data->init) return -1;
-
-	NOSCHED_ENTER();
-
-	if(config->device_mode == SLB_MASTER) {
-
-		config->gpio_sdl(1); 
-
-		_delay_us(100); // delay de sync de 100us para start
-
-	} else {
-		return -1; // slave mode não manda close
-	}
-
-	NOSCHED_LEAVE();
 
 	CRITICAL_ENTER();
 	data->busy = 0;
@@ -204,7 +170,6 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 	struct slb_data_s *data;
 	uint8_t *p;
 	int i, j, val = 0;
-	int check = 0;
 
 	uint64_t lasttime = 0, actualtime = 0;
 	uint32_t checksum = 0;
@@ -242,7 +207,6 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			if(val < 0) break; // se for stop bit, sai do loop
 			
 			p[i] = val; // do contrário, armazena o byte lido
-			check = val;
 		}
 
 		if(i > 1 && config->own_address != (p[0] >> 1)) continue; // não é pra mim a mensagem
@@ -286,15 +250,33 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 
 	NOSCHED_ENTER();
 
+	// SELECT + START
+
+	config->gpio_sdl(0); 
+
+	_delay_us(900); // delay de sync de 900us para iniciar select
+
+	config->gpio_sdl(1); 
+
+	_delay_us(100); // delay de sync de 100us para start
+
+	// SEND DATA
+
 	for (i = 0; i < count; i++) { 
 		slb_master_transfer(dev, p[i]);
 	}	
 
 	slb_master_transfer(dev, check_8); // envia o checksum
 
-	// NECESSARIO PRA FINALIZAR CONN (talvez colocar no close)
+	// NECESSARIO PRA FINALIZAR CONN 
 	config->gpio_sdl(0); // set data low
 	_delay_us(config->sync_time);
+
+	// STOP
+
+	config->gpio_sdl(1); 
+
+	_delay_us(100); // delay de sync de 100us para start
 
 	NOSCHED_LEAVE();
 
