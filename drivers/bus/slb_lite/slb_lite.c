@@ -57,7 +57,7 @@ static int slb_master_transfer(const struct device_s *dev, uint8_t data)
 static int slb_read_bit(const struct device_s *dev)
 {
   	struct slb_config_s *config;
-	int counter = 0, val;
+	int val = 0;
 	uint64_t lasttime = 0, actualtime = 0;
 
 	config = (struct slb_config_s *)dev->config;
@@ -70,16 +70,18 @@ static int slb_read_bit(const struct device_s *dev)
 
 	val = actualtime - lasttime; // calcula o tempo que ficou em high
 
+	// printf("diff time BIT AAAAAAA = %d\n", val);
+
 	if(val > 80) { // tempo do stop bit
 		return -1; // stop bit
-	} else if (counter > 40) { // entre 80us e 40us é bit 1
+	} else if (val > 40) { // entre 80us e 40us é bit 1
 		return 1; // bit 1
 	} else { // menor que 40us é bit 0
 		return 0; // bit 0
 	}
 }
 
-static int slb_read_byte(const struct device_s *dev)
+static uint8_t slb_read_byte(const struct device_s *dev)
 {
 	struct slb_config_s *config;
 	uint8_t byte=0;
@@ -89,15 +91,17 @@ static int slb_read_byte(const struct device_s *dev)
 	config = (struct slb_config_s *)dev->config;
 	
 	for(bit = 0; bit < 8; bit++) {
-		while(!config->gpio_sdl(-1)); //PORRAAAAAAAAAAAAAAAAAAAAAAAAAAA, porque essa merda de baixo estava comentado, deixa assim usando o while
+		// while(!config->gpio_sdl(-1)); //PORRAAAAAAAAAAAAAAAAAAAAAAAAAAA, porque essa merda de baixo estava comentado, deixa assim usando o while
 		//_delay_us(config->sync_time); // delay de sync de 33us
 		val = slb_read_bit(dev); // read data
+
+		// printf("bit %d = %d\n", bit, val);
 
 		if (val < 0) return val;
 
 		byte = (byte << 1) | val;
 	}
-
+	
 	return byte;
 }
 
@@ -150,6 +154,8 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 
 	if(mode) return -1; // no mode supported
 
+	NOSCHED_ENTER();
+
 	if(!retval && config->device_mode == SLB_MASTER) {
 		config->gpio_sdl(0); 
 
@@ -165,6 +171,8 @@ static int slb_driver_open(const struct device_s *dev, int mode)
 		return -1; // slave mode não manda open
 	}
 
+	NOSCHED_LEAVE();
+
 	return retval;
 }
 
@@ -178,6 +186,8 @@ static int slb_driver_close(const struct device_s *dev)
 
 	if(!data->init) return -1;
 
+	NOSCHED_ENTER();
+
 	if(config->device_mode == SLB_MASTER) {
 
 		config->gpio_sdl(1); 
@@ -187,6 +197,8 @@ static int slb_driver_close(const struct device_s *dev)
 	} else {
 		return -1; // slave mode não manda close
 	}
+
+	NOSCHED_LEAVE();
 
 	CRITICAL_ENTER();
 	data->busy = 0;
@@ -215,17 +227,24 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 	{	
 		repeat_flag = 0; // flag utilizada para, caso a mensagem não seja pra mim, repetir a leitura
 		// espera até que o barramento vá para high
-		while(!config->gpio_sdl(-1)); // espera acabar o tempo de select
-
 		NOSCHED_ENTER();
+
+		lasttime = _read_us(); 
+		while(!config->gpio_sdl(-1)); // espera acabar o tempo de select
+		actualtime = _read_us(); 
+
+		if(actualtime - lasttime < 40) continue;
+
 		// espera até que o barramento vá para low
 		lasttime = _read_us(); 
 		while (config->gpio_sdl(-1));// espera de fato o bit começar a ser enviado
 		actualtime = _read_us(); // pega o tempo atual
 		
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
-		if(actualtime - lasttime < 80) return -1; // tempo de start muito curto
+		if(actualtime - lasttime < 80) continue; // tempo de start muito curto
 		
+		printf("diff time = %d\n", actualtime - lasttime);
+
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
@@ -238,14 +257,15 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			if(val < 0) break; // se for stop bit, sai do loop
 			
 			p[i] = val; // do contrário, armazena o byte lido
-			checksum += val; // soma o checksum
+			// checksum += val; // soma o checksum
 		}
 		
 		if(repeat_flag) continue;
-
-		if(p[i-1] != (uint8_t)(checksum%256)) {
-			return -1;
-		}
+/*
+if(p[i-1] != (uint8_t)(checksum%256)) {
+	return -1;
+}
+*/
 		
 		NOSCHED_LEAVE();
 		

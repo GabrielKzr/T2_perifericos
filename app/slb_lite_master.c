@@ -73,19 +73,19 @@ const struct device_s *slb_master = &slb_device;
 
 void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 {
-    char data[33];
-    uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
+    // char data[33];
+    // uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
 
-    data[0] = byte;
+    // data[0] = byte;
 
     if(size > 32) size = 32;
-    memcpy(data + 1, buf, size);
+    // memcpy(data + 1, buf, size);
 
     dev_open(slb_master, 0);
 
 	printf("SLB_LITE: antes do dev_write()\n");
 
-    dev_write(slb_master, data, size + 1);
+    dev_write(slb_master, buf, size);
 
 	printf("SLB_LITE: depois do dev_write()\n");
 
@@ -112,11 +112,11 @@ void task0(void)
 		//_delay_us(500); // delay de sync de 100us para start
 		
 		for(int i = 0; i < 100; i++) {
-			buf[i] = 0x69 + i;
+			buf[i] = i;
 		}
 		
 		slb_lite_buffwrite(0x01, buf, 32);
-		_delay_us(500);
+		// _delay_us(500);
 		printf("uepa\n");
         // por enquanto não faz nada, talvez seja interessante colocar o teste de escrita aqui
 	}
@@ -124,7 +124,7 @@ void task0(void)
 
 int32_t app_main(void)
 {
-	//ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
+	ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
 	ucx_task_spawn(task0, DEFAULT_STACK_SIZE);
 
 	dev_init(slb_master);
