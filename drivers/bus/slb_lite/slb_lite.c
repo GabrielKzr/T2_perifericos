@@ -64,8 +64,13 @@ static int slb_read_bit(const struct device_s *dev)
 	while(!config->gpio_sdl(-1)); // espera de fato o bit começar a ser enviado (tempo de sync)
 
 	lasttime = _read_us(); // pega o tempo atual
-	while (config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em high
-	actualtime = _read_us(); // pega o tempo atual
+	
+	do {
+		actualtime = _read_us(); // pega o tempo atual
+		if((actualtime - lasttime) > 100) {
+			break; 
+		}
+	} while (config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em low
 
 	val = actualtime - lasttime; // calcula o tempo que ficou em high
 
@@ -168,7 +173,7 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 {
 	struct slb_config_s *config;
 	struct slb_data_s *data;
-	uint8_t *p;
+	uint8_t *p, read_from_master = 0;
 	int i, j, val = 0;
 
 	uint64_t lasttime = 0, actualtime = 0;
@@ -178,32 +183,65 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 	data = (struct slb_data_s *)dev->data;
 	p = (uint8_t *)buf;
 
-
 	if(!data->init) return -1;
+
+	int log_porco = 0;
 
 	while (1)
 	{	
 		// espera até que o barramento vá para high
 		NOSCHED_ENTER();
 
-		lasttime = _read_us(); 
-		while(!config->gpio_sdl(-1)); // espera acabar o tempo de select
-		actualtime = _read_us(); 
+		log_porco = 0;
 
-		if(actualtime - lasttime < 40) continue;
+		while(config->gpio_sdl(-1)){ 
+			/*if(!log_porco) {
+				log_porco = 1;
+				printf("A\n");
+			}*/
+		}
 
-		// espera até que o barramento vá para low
+		log_porco = 0;
+
 		lasttime = _read_us(); 
-		while (config->gpio_sdl(-1));// espera de fato o bit começar a ser enviado
+		while(!config->gpio_sdl(-1)){ 
+			/*if(!log_porco) {
+				log_porco = 1;
+				printf("B\n");
+			}*/
+		} // espera acabar o tempo de select
+		actualtime = _read_us();  
+
+		log_porco = 0;
+
+		if(actualtime - lasttime < 600) { 
+			//printf("shit1, %d\n", actualtime - lasttime);
+			continue;
+		}
+
+		lasttime = _read_us(); 
+		while (config->gpio_sdl(-1)){ 
+			/*if(!log_porco) {
+				log_porco = 1;
+				printf("C\n");
+			}*/
+		} // espera acabar o tempo de start
 		actualtime = _read_us(); // pega o tempo atual
-		
+
+		log_porco = 0;
+
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
-		if(actualtime - lasttime < 80) continue; // tempo de start muito curto
-		
+		if(actualtime - lasttime < 90) { 
+			//printf("shit2\n");
+			continue; // tempo de start muito curto
+		}
+
+		//printf("pass\n");
+
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
-			
+
 			if(val < 0) break; // se for stop bit, sai do loop
 			
 			p[i] = val; // do contrário, armazena o byte lido
@@ -212,8 +250,10 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		if(i > 1 && config->own_address != (p[0] >> 1)) continue; // não é pra mim a mensagem
 
 		for(j = 0; j < count; j++) {
-			checksum = p[j];
+			checksum += p[j];
 		}
+		
+		if(!(p[0] & 0x01)) return -2;
 
 		if(p[i] != (uint8_t)checksum%256) return -1;
 		
@@ -252,9 +292,13 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 
 	// SELECT + START
 
+	printf("Z\n");
+
 	config->gpio_sdl(0); 
 
 	_delay_us(900); // delay de sync de 900us para iniciar select
+
+	printf("X\n");
 
 	config->gpio_sdl(1); 
 

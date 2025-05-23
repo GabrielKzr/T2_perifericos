@@ -218,6 +218,10 @@ rtsched: rebuild
 	$(CC) $(CFLAGS) -o $(BUILD_APP_DIR)/rtsched.o app/rtsched.c
 	@$(MAKE) --no-print-directory link
 
+slb_lite_master-read: rebuild
+	$(CC) $(CFLAGS) -o $(BUILD_APP_DIR)/slb_lite_master-read.o app/slb_lite_master-read.c
+	@$(MAKE) --no-print-directory link
+
 slb_lite_master: rebuild
 	$(CC) $(CFLAGS) -o $(BUILD_APP_DIR)/slb_lite_master.o app/slb_lite_master.c
 	@$(MAKE) --no-print-directory link

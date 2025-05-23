@@ -13,6 +13,7 @@ struct slb_config_s {
     int sync_time; // sync bit
     char device_mode; // master or slave mode
     char own_address; // device address
+    uint32_t address_read;
     int (*gpio_configpins)(void); // setup pins callback
     int (*gpio_sdl)(int val); // pin read or write callback
 };

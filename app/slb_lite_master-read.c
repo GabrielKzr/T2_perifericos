@@ -44,8 +44,8 @@ int gpio_configpins(void)
 int gpio_sdl(int val)
 {
 	switch (val) {
-	case -1: gpio_dev_api->gpio_set(gpio, GPIO_PIN7);
-	return ((gpio_dev_api->gpio_get(gpio) & GPIO_PIN7) >> 7);
+	case -1:gpio_dev_api->gpio_set(gpio, GPIO_PIN7);
+			return ((gpio_dev_api->gpio_get(gpio) & GPIO_PIN7) >> 7);
 	case 0: gpio_dev_api->gpio_clear(gpio, GPIO_PIN7); return 0;
 	case 1: gpio_dev_api->gpio_set(gpio, GPIO_PIN7); return 0;
 	default: return -1;
@@ -55,8 +55,8 @@ int gpio_sdl(int val)
 /* SLB_LITE (bitbang) configuration and driver instantiation */
 const struct slb_config_s slb_config = {
 	.sync_time = 33,
-    .device_mode = SLB_SLAVE,
-    .own_address = 0x01,
+    .device_mode = SLB_MASTER,
+    .own_address = 0x00,
 	.gpio_configpins = gpio_configpins,
     .gpio_sdl = gpio_sdl,
 	.address_read = 0x00000000
@@ -71,7 +71,26 @@ const struct device_s slb_device = {
 	.api = &slb_api
 };
 
-const struct device_s *slb_slave = &slb_device;
+const struct device_s *slb_master = &slb_device;
+
+void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
+{
+    char data[33];
+    uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
+
+    data[0] = byte;
+
+    if(size > 32) size = 32;
+    memcpy(data + 1, buf, size);
+
+    dev_open(slb_master, 0);
+
+    dev_write(slb_master, data, size + 1);
+
+    dev_close(slb_master);
+
+    _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
+}
 
 void idle(void)
 {
@@ -82,89 +101,41 @@ void task0(void)
 {
 	uint8_t buf[100];
 	
-	dev_open(slb_slave, 0);
+	printf("SLB_LITE: task0()\n");
 
-	printf("uepa\n");
 
-	memset(buf, 0, sizeof(buf)); // não sei qual o padrão de 0x69 em bytes na hora que for ver no analisador lógico
+	// _delay_ms(3000);
 
+	dev_open(slb_master, 0);
 	while (1) {
 
-		//cgpio_dev_api->gpio_set(gpio, GPIO_PIN7);
+		printf("DSADSADSADADS\n");
 
-		if (dev_read(slb_slave, buf, 33) < 0) printf("DEU MERDA\n");        
-		
-		for(int i = 0; i < 35; i++) {
-			printf("buf[%d] = %d\n", i, buf[i]);
-		}
-	
+		buf[0] = 0x02;
+		uint32_t value = 536871524;
+		buf[1] = (value >> 24) & 0xFF;
+		buf[2] = (value >> 16) & 0xFF;
+		buf[3] = (value >> 8) & 0xFF;
+		buf[4] = value & 0xFF;
+
+		dev_write(slb_master, buf, 5);
+
+		dev_read(slb_master, buf, 10);
+		printf("SLB_LITE: task0() - buf[0] = %d,%d\n", buf[0], buf[1]);
+
+		_delay_ms(50);
+
 	}
 
-	dev_close(slb_slave);
-
-
-}
-
-void task1(void)
-{
-	static uint8_t buf_write[100];
-	uint32_t address_buf = (uint32_t)&buf_write;
-	uint8_t buf_read[100];
-	
-	memset(buf_read, 0, sizeof(buf_read)); 
-
-	struct slb_config_s * config = (struct slb_config_s *)slb_slave->config;
-
-	int value_returned;
-	uint32_t address_read = 0;
-
-	dev_open(slb_slave, 0);
-
-	buf_write[0] = 0x00;
-	for(int i = 1; i < 100; i++) {
-		buf_write[i] = i+49;
-	}
-
-
-	while (1) {
-		
-		value_returned = dev_read(slb_slave, buf_read, 10);
-
-		for(int i = 0; i < 7; i++) {
-			printf("buf[%d] = %d\n", i, buf_read[i]);
-		}
-
-		printf("value_returned = %d e %u\n", value_returned, config->address_read);
-
-
-		if(value_returned  == -2){
-			address_read = (uint32_t)buf_read[1] << 24 
-						 | (uint32_t)buf_read[2] << 16 
-						 | (uint32_t)buf_read[3] << 8 
-						 | (uint32_t)buf_read[4];
-
-			printf("value_returned = %d e %u\n", value_returned, address_read);
-
-			if(address_read == address_buf) {
-				_delay_ms(50);
-				dev_write(slb_slave, buf_write, 2);
-			}	
-		}
-		/*if(536871524 == address_buf) {
-			printf("address_buf = %u\n", address_buf);
-		}*/
-	}
-
-	dev_close(slb_slave);
-
+	dev_close(slb_master);
 }
 
 int32_t app_main(void)
 {
 	ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
-	ucx_task_spawn(task1, DEFAULT_STACK_SIZE);
+	ucx_task_spawn(task0, DEFAULT_STACK_SIZE);
 
-	dev_init(slb_slave);
+	dev_init(slb_master);
 
 	// start UCX/OS, preemptive mode
 	return 1;
