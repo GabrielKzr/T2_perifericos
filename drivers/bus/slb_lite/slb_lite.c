@@ -173,7 +173,7 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 {
 	struct slb_config_s *config;
 	struct slb_data_s *data;
-	uint8_t *p, read_from_master = 0;
+	uint8_t *p;
 	int i, j, val = 0;
 
 	uint64_t lasttime = 0, actualtime = 0;
@@ -185,38 +185,26 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 
 	if(!data->init) return -1;
 
-	// int log_porco = 0;
-
 	while (1)
 	{	
 		// espera até que o barramento vá para high
 		NOSCHED_ENTER();
 
-		// log_porco = 0;
-
-		while(config->gpio_sdl(-1)){ 
-			/*
-			if(!log_porco) {
-				log_porco = 1;
-				printf("A\n");
+		lasttime = _read_us(); 
+		do {
+			actualtime = _read_us();
+			if((actualtime - lasttime) > 1000000) {
+				return -1;
 			}
-			*/
-		}
-
-		// log_porco = 0;
+		} while (config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em low
 
 		lasttime = _read_us(); 
-		while(!config->gpio_sdl(-1)){ 
-			/*
-			if(!log_porco) {
-				log_porco = 1;
-				printf("B\n");
+		do {
+			actualtime = _read_us();
+			if((actualtime - lasttime) > 1000000) {
+				return -1;
 			}
-			*/
-		} // espera acabar o tempo de select
-		actualtime = _read_us();  
-
-		// log_porco = 0;
+		} while (!config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em high
 
 		if(actualtime - lasttime < 600) { 
 			printf("shit1, %d\n", actualtime - lasttime);
@@ -224,17 +212,12 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		}
 
 		lasttime = _read_us(); 
-		while (config->gpio_sdl(-1)){ 
-			/*
-			if(!log_porco) {
-				log_porco = 1;
-				printf("C\n");
+		do {
+			actualtime = _read_us();
+			if((actualtime - lasttime) > 1000000) {
+				return -1;
 			}
-			*/
-		} // espera acabar o tempo de start
-		actualtime = _read_us(); // pega o tempo atual
-
-		// log_porco = 0;
+		} while (config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em low
 
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
 		if(actualtime - lasttime < 90) { 
@@ -242,13 +225,9 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			continue; // tempo de start muito curto
 		}
 
-		// printf("pass\n");
-
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
-
-			// printf("F\n");
 
 			if(val < 0) break; // se for stop bit, sai do loop
 			

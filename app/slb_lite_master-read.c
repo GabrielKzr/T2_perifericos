@@ -85,6 +85,8 @@ void task0(void)
 	
 	printf("SLB_LITE: task0()\n");
 
+	memset(buf_read, 0, sizeof(buf_read)); 
+	memset(buf_write, 0, sizeof(buf_write)); 
 
 	// _delay_ms(3000);
 
@@ -97,16 +99,18 @@ void task0(void)
 
 	dev_open(slb_master, 0);
 	while (1) {
+		memset(buf_read, 0, sizeof(buf_read)); 
 
-		//printf("DSADSADSADADS\n");
 		dev_write(slb_master, buf_write, 5);
 
-		dev_read(slb_master, buf_read, 10);
-		printf("SLB_LITE: task0() - buf[0] = %d,%d\n", buf_read[0], buf_read[1]);
+		if(dev_read(slb_master, buf_read, 10) < 0) printf("Erro\n");;
 
+		for(int i = 0; i < 5; i++) {
+			printf("buf[%d] = %d\n", i, buf_read[i]);
+		}
 
-		_delay_ms(1000);
-
+		// TALVEZ SEJA INTERESSANTE TER DELAY PARA GARANTIA DE ENTREGA DE DADOS
+		// _delay_ms(800);
 	}
 
 	dev_close(slb_master);

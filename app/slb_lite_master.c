@@ -87,7 +87,7 @@ void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
 
     dev_close(slb_master);
 
-    _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
+    // _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
 }
 
 void idle(void)
@@ -114,7 +114,7 @@ void task0(void)
 		slb_lite_buffwrite(0x01, buf, 4);
 		printf("uepa\n");
         // por enquanto não faz nada, talvez seja interessante colocar o teste de escrita aqui
-		_delay_ms(2000);
+		// _delay_ms(2000);
 	}
 }
 

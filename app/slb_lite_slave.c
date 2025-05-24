@@ -131,12 +131,10 @@ void task2(void)
 void task1(void)
 {
 	static uint8_t buf_write[100];
-	uint32_t address_buf = (uint32_t)&buf_write;
 	uint8_t buf_read[100];
 	
 	memset(buf_read, 0, sizeof(buf_read)); 
-
-	struct slb_config_s * config = (struct slb_config_s *)slb_slave->config;
+	memset(buf_write, 0, sizeof(buf_write)); 
 
 	int value_returned;
 	uint32_t address_read = 0;
@@ -144,9 +142,8 @@ void task1(void)
 	dev_open(slb_slave, 0);
 
 	buf_write[0] = 0x00;
-	for(int i = 1; i < 100; i++) {
-		buf_write[i] = i+49;
-	}
+	buf_write[1] = 50;
+	buf_write[2] = 51;
 
 	//NOSCHED_ENTER();
 
@@ -158,7 +155,7 @@ void task1(void)
 			printf("buf[%d] = %d\n", i, buf_read[i]);
 		}*/
 
-		printf("vr=%d\n", value_returned, config->address_read);
+		printf("vr=%d\n", value_returned);
 
 
 		if(value_returned  == -2){
@@ -171,7 +168,7 @@ void task1(void)
 
 			if(address_read == 536871524) {
 				_delay_ms(50);
-				dev_write(slb_slave, buf_write, 2);
+				dev_write(slb_slave, buf_write, 3);
 			}	
 		}
 		/*if(536871524 == address_buf) {
@@ -188,7 +185,7 @@ void task1(void)
 int32_t app_main(void)
 {
 	//ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
-	ucx_task_spawn(task2, DEFAULT_STACK_SIZE);
+	ucx_task_spawn(task1, DEFAULT_STACK_SIZE);
 
 	dev_init(slb_slave);
 
