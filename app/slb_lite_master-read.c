@@ -73,25 +73,6 @@ const struct device_s slb_device = {
 
 const struct device_s *slb_master = &slb_device;
 
-void slb_lite_buffwrite(uint8_t device, uint8_t *buf, uint8_t size)
-{
-    char data[33];
-    uint8_t byte = (device << 1) | 1;  // 1 para escrita, 0 para leitura
-
-    data[0] = byte;
-
-    if(size > 32) size = 32;
-    memcpy(data + 1, buf, size);
-
-    dev_open(slb_master, 0);
-
-    dev_write(slb_master, data, size + 1);
-
-    dev_close(slb_master);
-
-    _delay_ms(800); // delay só pro protocolo respirar, na prática não tem necessidade, só para testes
-}
-
 void idle(void)
 {
 	for (;;);
@@ -99,31 +80,32 @@ void idle(void)
 
 void task0(void)
 {
-	uint8_t buf[100];
+	uint8_t buf_write[100];
+	uint8_t buf_read[100];
 	
 	printf("SLB_LITE: task0()\n");
 
 
 	// _delay_ms(3000);
 
+	buf_write[0] = 0x02;
+	uint32_t value = 536871524;
+	buf_write[1] = (value >> 24) & 0xFF;
+	buf_write[2] = (value >> 16) & 0xFF;
+	buf_write[3] = (value >> 8) & 0xFF;
+	buf_write[4] = value & 0xFF;
+
 	dev_open(slb_master, 0);
 	while (1) {
 
-		printf("DSADSADSADADS\n");
+		//printf("DSADSADSADADS\n");
+		dev_write(slb_master, buf_write, 5);
 
-		buf[0] = 0x02;
-		uint32_t value = 536871524;
-		buf[1] = (value >> 24) & 0xFF;
-		buf[2] = (value >> 16) & 0xFF;
-		buf[3] = (value >> 8) & 0xFF;
-		buf[4] = value & 0xFF;
+		dev_read(slb_master, buf_read, 10);
+		printf("SLB_LITE: task0() - buf[0] = %d,%d\n", buf_read[0], buf_read[1]);
 
-		dev_write(slb_master, buf, 5);
 
-		dev_read(slb_master, buf, 10);
-		printf("SLB_LITE: task0() - buf[0] = %d,%d\n", buf[0], buf[1]);
-
-		_delay_ms(50);
+		_delay_ms(1000);
 
 	}
 
@@ -132,7 +114,7 @@ void task0(void)
 
 int32_t app_main(void)
 {
-	ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
+	//ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
 	ucx_task_spawn(task0, DEFAULT_STACK_SIZE);
 
 	dev_init(slb_master);

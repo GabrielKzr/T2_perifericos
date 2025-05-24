@@ -83,7 +83,7 @@ static int slb_read_bit(const struct device_s *dev)
 	}
 }
 
-static uint8_t slb_read_byte(const struct device_s *dev)
+static int slb_read_byte(const struct device_s *dev)
 {
 	uint8_t byte=0;
 	unsigned bit;
@@ -195,36 +195,36 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		log_porco = 0;
 
 		while(config->gpio_sdl(-1)){ 
-			/*if(!log_porco) {
+			if(!log_porco) {
 				log_porco = 1;
 				printf("A\n");
-			}*/
+			}
 		}
 
 		log_porco = 0;
 
 		lasttime = _read_us(); 
 		while(!config->gpio_sdl(-1)){ 
-			/*if(!log_porco) {
+			if(!log_porco) {
 				log_porco = 1;
 				printf("B\n");
-			}*/
+			}
 		} // espera acabar o tempo de select
 		actualtime = _read_us();  
 
 		log_porco = 0;
 
 		if(actualtime - lasttime < 600) { 
-			//printf("shit1, %d\n", actualtime - lasttime);
+			printf("shit1, %d\n", actualtime - lasttime);
 			continue;
 		}
 
 		lasttime = _read_us(); 
 		while (config->gpio_sdl(-1)){ 
-			/*if(!log_porco) {
+			if(!log_porco) {
 				log_porco = 1;
 				printf("C\n");
-			}*/
+			}
 		} // espera acabar o tempo de start
 		actualtime = _read_us(); // pega o tempo atual
 
@@ -232,23 +232,27 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
 		if(actualtime - lasttime < 90) { 
-			//printf("shit2\n");
+			printf("shit2\n");
 			continue; // tempo de start muito curto
 		}
 
-		//printf("pass\n");
+		printf("pass\n");
 
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
+
+			printf("F\n");
 
 			if(val < 0) break; // se for stop bit, sai do loop
 			
 			p[i] = val; // do contrário, armazena o byte lido
 		}
 
-		if(i > 1 && config->own_address != (p[0] >> 1)) continue; // não é pra mim a mensagem
-
+		if(i > 1 && config->own_address != (p[0] >> 1)) {
+			printf("db,%d,%d\n", i, (p[0] >> 1));
+			continue; // não é pra mim a mensagem
+		}
 		for(j = 0; j < count; j++) {
 			checksum += p[j];
 		}
@@ -321,6 +325,12 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 	config->gpio_sdl(1); 
 
 	_delay_us(100); // delay de sync de 100us para start
+
+	config->gpio_sdl(0);
+
+	_delay_us(config->sync_time);
+
+	config->gpio_sdl(1);
 
 	NOSCHED_LEAVE();
 

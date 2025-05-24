@@ -125,16 +125,17 @@ void task1(void)
 		buf_write[i] = i+49;
 	}
 
+	//NOSCHED_ENTER();
 
 	while (1) {
 		
 		value_returned = dev_read(slb_slave, buf_read, 10);
 
-		for(int i = 0; i < 7; i++) {
+		/*for(int i = 0; i < 10; i++) {
 			printf("buf[%d] = %d\n", i, buf_read[i]);
-		}
+		}*/
 
-		printf("value_returned = %d e %u\n", value_returned, config->address_read);
+		printf("vr=%d\n", value_returned, config->address_read);
 
 
 		if(value_returned  == -2){
@@ -143,9 +144,9 @@ void task1(void)
 						 | (uint32_t)buf_read[3] << 8 
 						 | (uint32_t)buf_read[4];
 
-			printf("value_returned = %d e %u\n", value_returned, address_read);
+			//printf("value_returned = %d e %u\n", value_returned, address_read);
 
-			if(address_read == address_buf) {
+			if(address_read == 536871524) {
 				_delay_ms(50);
 				dev_write(slb_slave, buf_write, 2);
 			}	
@@ -155,13 +156,15 @@ void task1(void)
 		}*/
 	}
 
+	//NOSCHED_LEAVE();
+
 	dev_close(slb_slave);
 
 }
 
 int32_t app_main(void)
 {
-	ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
+	//ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
 	ucx_task_spawn(task1, DEFAULT_STACK_SIZE);
 
 	dev_init(slb_slave);
