@@ -105,6 +105,29 @@ void task0(void)
 
 }
 
+void task2(void) 
+{
+	uint8_t buf[100];
+	
+	dev_open(slb_slave, 0);
+
+	printf("uepa\n");
+
+	memset(buf, 0, sizeof(buf)); // não sei qual o padrão de 0x69 em bytes na hora que for ver no analisador lógico
+
+	while (1) {
+
+		if (dev_read(slb_slave, buf, 5) < 0) printf("DEU MERDA\n");        
+		
+		for(int i = 0; i < 7; i++) {
+			printf("buf[%d] = %d\n", i, buf[i]);
+		}
+	
+	}
+
+	dev_close(slb_slave);
+}
+
 void task1(void)
 {
 	static uint8_t buf_write[100];
@@ -165,7 +188,7 @@ void task1(void)
 int32_t app_main(void)
 {
 	//ucx_task_spawn(idle, DEFAULT_STACK_SIZE);
-	ucx_task_spawn(task1, DEFAULT_STACK_SIZE);
+	ucx_task_spawn(task2, DEFAULT_STACK_SIZE);
 
 	dev_init(slb_slave);
 

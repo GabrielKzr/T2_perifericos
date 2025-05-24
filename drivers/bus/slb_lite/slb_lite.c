@@ -185,34 +185,38 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 
 	if(!data->init) return -1;
 
-	int log_porco = 0;
+	// int log_porco = 0;
 
 	while (1)
 	{	
 		// espera até que o barramento vá para high
 		NOSCHED_ENTER();
 
-		log_porco = 0;
+		// log_porco = 0;
 
 		while(config->gpio_sdl(-1)){ 
+			/*
 			if(!log_porco) {
 				log_porco = 1;
 				printf("A\n");
 			}
+			*/
 		}
 
-		log_porco = 0;
+		// log_porco = 0;
 
 		lasttime = _read_us(); 
 		while(!config->gpio_sdl(-1)){ 
+			/*
 			if(!log_porco) {
 				log_porco = 1;
 				printf("B\n");
 			}
+			*/
 		} // espera acabar o tempo de select
 		actualtime = _read_us();  
 
-		log_porco = 0;
+		// log_porco = 0;
 
 		if(actualtime - lasttime < 600) { 
 			printf("shit1, %d\n", actualtime - lasttime);
@@ -221,14 +225,16 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 
 		lasttime = _read_us(); 
 		while (config->gpio_sdl(-1)){ 
+			/*
 			if(!log_porco) {
 				log_porco = 1;
 				printf("C\n");
 			}
+			*/
 		} // espera acabar o tempo de start
 		actualtime = _read_us(); // pega o tempo atual
 
-		log_porco = 0;
+		// log_porco = 0;
 
 		// verifica se o tempo que ficou esperando é o tempo minimo definido para start
 		if(actualtime - lasttime < 90) { 
@@ -236,13 +242,13 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			continue; // tempo de start muito curto
 		}
 
-		printf("pass\n");
+		// printf("pass\n");
 
 		// o +1 é porque tem o bit a mais do checksum
 		for(i = 0; i < count + 1; i++) { // número máximo de bytes a serem lidos, se passar desse valor, barramento só não será mais lido
 			val = slb_read_byte(dev); // read data
 
-			printf("F\n");
+			// printf("F\n");
 
 			if(val < 0) break; // se for stop bit, sai do loop
 			
@@ -253,10 +259,11 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			printf("db,%d,%d\n", i, (p[0] >> 1));
 			continue; // não é pra mim a mensagem
 		}
+
 		for(j = 0; j < count; j++) {
 			checksum += p[j];
 		}
-		
+
 		if(!(p[0] & 0x01)) return -2;
 
 		if(p[i] != (uint8_t)checksum%256) return -1;
@@ -296,13 +303,13 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 
 	// SELECT + START
 
-	printf("Z\n");
+	// printf("Z\n");
 
 	config->gpio_sdl(0); 
 
 	_delay_us(900); // delay de sync de 900us para iniciar select
 
-	printf("X\n");
+	// printf("X\n");
 
 	config->gpio_sdl(1); 
 
@@ -324,13 +331,7 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 
 	config->gpio_sdl(1); 
 
-	_delay_us(100); // delay de sync de 100us para start
-
-	config->gpio_sdl(0);
-
-	_delay_us(config->sync_time);
-
-	config->gpio_sdl(1);
+	_delay_us(100); // delay de sync de 100us para stop
 
 	NOSCHED_LEAVE();
 

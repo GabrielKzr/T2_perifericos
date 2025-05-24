@@ -108,13 +108,13 @@ void task0(void)
 		//_delay_us(500); // delay de sync de 100us para start
 		
 		for(int i = 0; i < 100; i++) {
-			buf[i] = i + 217;
+			buf[i] = i + 240;
 		}
 		
-		slb_lite_buffwrite(0x01, buf, 32);
-		// _delay_us(500);
+		slb_lite_buffwrite(0x01, buf, 4);
 		printf("uepa\n");
         // por enquanto não faz nada, talvez seja interessante colocar o teste de escrita aqui
+		_delay_ms(2000);
 	}
 }
 
