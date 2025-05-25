@@ -117,8 +117,10 @@ static int slb_driver_init(const struct device_s *dev)
 
 	if (config->device_mode == SLB_MASTER) {
 		config->gpio_sdl(1); // set to master mode (começa em high)
+		// config->en_write = 1; // permite a escrita do master
 	} else if (config->device_mode == SLB_SLAVE) {
 		config->gpio_sdl(-1); // set to slave mode (slave só ouve)
+		// config->en_write = 0; // não permite a escrita do slave
 	} else {
 		return -1; // invalid mode
 	}
@@ -193,7 +195,7 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		lasttime = _read_us(); 
 		do {
 			actualtime = _read_us();
-			if((actualtime - lasttime) > 1000000) {
+			if((actualtime - lasttime) > 100000) {
 				return -1;
 			}
 		} while (config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em low
@@ -201,7 +203,7 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 		lasttime = _read_us(); 
 		do {
 			actualtime = _read_us();
-			if((actualtime - lasttime) > 1000000) {
+			if((actualtime - lasttime) > 100000) {
 				return -1;
 			}
 		} while (!config->gpio_sdl(-1)); // espera o tempo em que o barramento fica em high
@@ -239,17 +241,26 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			continue; // não é pra mim a mensagem
 		}
 
-		for(j = 0; j < count; j++) {
+		for(j = 0; j < i-1; j++) {
 			checksum += p[j];
 		}
 
-		if(!(p[0] & 0x01)) return -2;
+		if(i > 0) {
+			// printf("ck: %d\n", p[i-1]);
+			// printf("ck: %d\n", (uint8_t)checksum%256);
+			if(p[i-1] != (uint8_t)checksum%256) return -1;
+		}
 
-		if(p[i] != (uint8_t)checksum%256) return -1;
-		
+		/*
+		if(!(p[0] & 0x01) && config->device_mode == SLB_SLAVE) {
+			config->en_write = 1;
+			printf("_en\n");
+		}
+		*/
+
 		NOSCHED_LEAVE();
 		
-		return i;
+		return i-1;
 	}
 }
 
@@ -271,6 +282,9 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 	uint8_t check_8 = 0;
 
 	// REMEMBER -> SLAVE JUST TRANSMIT WHEN MASTER SENDS A READ REQUEST
+	// printf("en %d\n", config->en_write);
+	// if(!config->en_write) return -1;
+
 
 	for(j = 0; j < count; j++) {
 		checksum += p[j];
@@ -279,6 +293,9 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 	check_8 = (uint8_t)(checksum%256);
 
 	NOSCHED_ENTER();
+
+	// DELAY NECESSÁRIO PARA SINCRONIZAÇÃO GERAL DA ESCRITA PARA EVITAR PERDA DE DADOS
+	_delay_ms(config->sync_time*2); // delay de sync de 33ms (sim, é de ms)
 
 	// SELECT + START
 

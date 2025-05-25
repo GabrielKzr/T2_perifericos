@@ -59,7 +59,6 @@ const struct slb_config_s slb_config = {
     .own_address = 0x00,
 	.gpio_configpins = gpio_configpins,
     .gpio_sdl = gpio_sdl,
-	.address_read = 0x00000000
 };
 
 struct slb_data_s slb_data;
@@ -82,6 +81,7 @@ void task0(void)
 {
 	uint8_t buf_write[100];
 	uint8_t buf_read[100];
+	int ret = 0;
 	
 	printf("SLB_LITE: task0()\n");
 
@@ -99,11 +99,16 @@ void task0(void)
 
 	dev_open(slb_master, 0);
 	while (1) {
+		ret = 0;
+
 		memset(buf_read, 0, sizeof(buf_read)); 
 
 		dev_write(slb_master, buf_write, 5);
 
-		if(dev_read(slb_master, buf_read, 10) < 0) printf("Erro\n");;
+		ret = dev_read(slb_master, buf_read, 10);
+
+		printf("ret = %d\n", ret);
+		if(ret < 0) printf("Erro na leitura\n");
 
 		for(int i = 0; i < 5; i++) {
 			printf("buf[%d] = %d\n", i, buf_read[i]);
