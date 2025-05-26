@@ -167,6 +167,12 @@ void task1(void)
 				dev_write(slb_slave, buf_write, 3);
 			}	
 		}
+		dev_read(slb_slave, buf_read, 10);
+
+		for(int i = 0; i < 5; i++) {
+			printf("buf[%d] = %d\n", i, buf_read[i]);
+		}
+
 	}
 
 	dev_close(slb_slave);

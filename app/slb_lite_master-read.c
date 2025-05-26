@@ -80,6 +80,7 @@ void idle(void)
 void task0(void)
 {
 	uint8_t buf_write[100];
+	uint8_t buf_write2[100];
 	uint8_t buf_read[100];
 	int ret = 0;
 	
@@ -87,7 +88,8 @@ void task0(void)
 
 	memset(buf_read, 0, sizeof(buf_read)); 
 	memset(buf_write, 0, sizeof(buf_write)); 
-
+	memset(buf_write2, 0, sizeof(buf_write)); 
+	
 	// _delay_ms(3000);
 
 	buf_write[0] = 0x02;
@@ -98,6 +100,11 @@ void task0(void)
 	buf_write[4] = value & 0xFF;
 
 	dev_open(slb_master, 0);
+
+	buf_write2[0] = 0x02;
+	buf_write2[1] = 240; // address
+	buf_write2[2] = 230; // data MSB
+
 	while (1) {
 		ret = 0;
 
@@ -113,6 +120,8 @@ void task0(void)
 		for(int i = 0; i < 5; i++) {
 			printf("buf[%d] = %d\n", i, buf_read[i]);
 		}
+
+		dev_write(slb_master, buf_write2, 3);
 
 		// TALVEZ SEJA INTERESSANTE TER DELAY PARA GARANTIA DE ENTREGA DE DADOS
 		// _delay_ms(800);
