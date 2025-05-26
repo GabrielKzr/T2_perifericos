@@ -129,8 +129,6 @@ void task2(void)
 
 void task1(void)
 {
-	// struct slb_config_s *config;
-	// config = (struct slb_config_s *)slb_slave->config;
 	static uint8_t buf_write[100];
 	uint8_t buf_read[100];
 	
@@ -146,8 +144,6 @@ void task1(void)
 	buf_write[1] = 50;
 	buf_write[2] = 51;
 
-	//NOSCHED_ENTER();
-
 	while (1) {
 		memset(buf_read, 0, sizeof(buf_read)); 
 		
@@ -157,8 +153,8 @@ void task1(void)
 			printf("buf[%d] = %d\n", i, buf_read[i]);
 		}*/
 
-		printf("vr=%d\n", value_returned);
-		// printf("EN: %d\n", config->en_write);
+		// printf("vr=%d\n", value_returned);
+		if(value_returned < 0) continue;
 
 		if((buf_read[0] & 0x01) == 0){
 			address_read = (uint32_t)buf_read[1] << 24 
@@ -166,22 +162,14 @@ void task1(void)
 						 | (uint32_t)buf_read[3] << 8 
 						 | (uint32_t)buf_read[4];
 
-			//printf("value_returned = %d e %u\n", value_returned, address_read);
-
 			if(address_read == 536871524) {
 				// _delay_ms(50);
 				dev_write(slb_slave, buf_write, 3);
 			}	
 		}
-		/*if(536871524 == address_buf) {
-			printf("address_buf = %u\n", address_buf);
-		}*/
 	}
 
-	//NOSCHED_LEAVE();
-
 	dev_close(slb_slave);
-
 }
 
 int32_t app_main(void)

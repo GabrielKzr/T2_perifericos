@@ -117,10 +117,10 @@ static int slb_driver_init(const struct device_s *dev)
 
 	if (config->device_mode == SLB_MASTER) {
 		config->gpio_sdl(1); // set to master mode (começa em high)
-		// config->en_write = 1; // permite a escrita do master
+		data->en_write = 1; // permite a escrita do master
 	} else if (config->device_mode == SLB_SLAVE) {
 		config->gpio_sdl(-1); // set to slave mode (slave só ouve)
-		// config->en_write = 0; // não permite a escrita do slave
+		data->en_write = 0; // não permite a escrita do slave
 	} else {
 		return -1; // invalid mode
 	}
@@ -245,18 +245,13 @@ static size_t slb_driver_read(const struct device_s *dev, void *buf, size_t coun
 			checksum += p[j];
 		}
 
-		if(i > 0) {
-			// printf("ck: %d\n", p[i-1]);
-			// printf("ck: %d\n", (uint8_t)checksum%256);
-			if(p[i-1] != (uint8_t)checksum%256) return -1;
-		}
+		if(i > 0 && p[i-1] != (uint8_t)checksum%256) return -1;
 
-		/*
+		p[i-1] = 0; // limpa a posição do checksum (só é tratado pelo driver)
+
 		if(!(p[0] & 0x01) && config->device_mode == SLB_SLAVE) {
-			config->en_write = 1;
-			printf("_en\n");
+			data->en_write = 1;
 		}
-		*/
 
 		NOSCHED_LEAVE();
 		
@@ -283,8 +278,10 @@ static size_t slb_driver_write(const struct device_s *dev, void *buf, size_t cou
 
 	// REMEMBER -> SLAVE JUST TRANSMIT WHEN MASTER SENDS A READ REQUEST
 	// printf("en %d\n", config->en_write);
-	// if(!config->en_write) return -1;
-
+	if(!data->en_write) return -1;
+	if(data->en_write && config->device_mode == SLB_SLAVE) {
+		data->en_write = 0; // desabilita escrita do slave
+	}
 
 	for(j = 0; j < count; j++) {
 		checksum += p[j];

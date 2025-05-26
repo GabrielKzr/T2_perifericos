@@ -13,7 +13,6 @@ struct slb_config_s {
     int sync_time; // sync bit
     char device_mode; // master or slave mode
     char own_address; // device address
-    // int en_write;
     int (*gpio_configpins)(void); // setup pins callback
     int (*gpio_sdl)(int val); // pin read or write callback
 };
@@ -22,6 +21,7 @@ struct slb_config_s {
 struct slb_data_s {
     char init; // device initialized
     char busy; // device is busy
+    char en_write; // enable write for slave
 };
 
 extern struct device_api_s slb_api;
